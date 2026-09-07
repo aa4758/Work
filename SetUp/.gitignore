@@ -1,0 +1,20 @@
+# API 키 — 절대 커밋 금지 (계획서 원칙 1)
+*.env
+.env
+!.env.example
+../Security/
+
+# SQLite DB (개인 포트폴리오 + 캐시)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# 다운로드 캐시
+.cache/
+
+# 파이썬
+__pycache__/
+*.py[cod]
+.venv/
+venv/

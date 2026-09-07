@@ -1,0 +1,17 @@
+# === 시크릿 — 절대 커밋 금지 ===
+Security/
+*.env
+!*.env.example
+
+# === 로컬 데이터·캐시 ===
+**/data/
+**/.cache/
+*.db
+*.db-wal
+*.db-shm
+
+# === 파이썬 ===
+__pycache__/
+*.py[cod]
+.venv/
+venv/
