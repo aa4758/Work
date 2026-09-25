@@ -78,9 +78,9 @@ TEAM = [("01_chart", "차트", "chart-analyst", "all"), ("02_fundamental", "기�
 SESSIONS = Path.home() / ".claude" / "projects" / re.sub(r"[:\\/]", "-", str(ROOT))  # claude 가 대화 기록을 남기는 곳
 
 
-def touched_tickers(tickers: list[str]) -> dict[str, set]:
+def touched_tickers(tickers: list[str], folder: Path) -> dict[str, set]:
     """이번 실행(폴더가 생긴 뒤)의 /pick-10 세션 에이전트별로, 검색·도구 호출에 등장한 후보 티커 (= 분석을 시작한 종목, 추정)."""
-    since = run_folder().stat().st_ctime if run_folder().exists() else time.time()
+    since = folder.stat().st_ctime
     sessions = [f for f in SESSIONS.glob("*.jsonl")
                 if f.stat().st_mtime >= since
                 and "/pick-10 US" in f.open(encoding="utf-8", errors="ignore").read(2000)]
@@ -109,7 +109,7 @@ def team_progress(folder: Path) -> list[tuple[str, str, int | None, int | None]]
         return None
     stocks = handoff.candidates(folder)[0]
     scope = {"all": stocks + handoff.ASSETS, "survivors": handoff.survivors(folder), None: []}
-    seen = touched_tickers(scope["all"])
+    seen = touched_tickers(scope["all"], folder)
     rows = []
     for stem, label, agent, target in TEAM:
         f, total = folder / f"{stem}.md", scope[target]
@@ -143,7 +143,7 @@ with st.sidebar:
     busy = running or bool(waiting)
     candidates = st.number_input("분석할 후보 종목 수", min_value=15, max_value=60, value=30, step=5,
                                  disabled=busy, help="많을수록 넓게 보지만 시간과 사용량이 비례해 늘어납니다.")
-    folder_now = run_folder()
+    folder_now = job()["folder"] if busy else run_folder()  # 실행 중에는 장 마감이 지나도 그 실행의 폴더
     if not shutil.which("claude"):
         st.error("`claude` CLI를 찾을 수 없습니다.")
     elif st.button("🚀 투자팀 가동", disabled=busy, type="primary"):
@@ -156,37 +156,47 @@ with st.sidebar:
         if st.button("▶ 이어서 실행", help="끝난 분석은 건너뛰고 남은 단계만 실행합니다. 후보는 처음 실행 그대로입니다."):
             team_run.launch(job(), int(candidates), resume=True)
             st.rerun()
-    if note := job().get("note"):
-        st.info(note)
-    if running:
-        st.info(f"실행 중… {int((time.time() - job()['started']) // 60)}분 경과"
-                + (f" (자동 이어서 실행 {job()['attempts']}/{team_run.MAX_AUTO}회째)" if job().get("attempts") else ""))
-        st.button("상태 새로고침")
-    elif waiting:
-        st.warning(f"⏸ 사용 한도에 도달했습니다. {waiting.astimezone():%m/%d %H:%M}에 자동으로 이어서 실행합니다 "
-                   f"({job()['attempts'] + 1}/{team_run.MAX_AUTO}회). 앱과 PC를 켜 두세요.")
-        if st.button("자동 이어서 실행 취소"):
-            job()["cancel"] = True
-            job()["resume_at"] = None
-            st.rerun()
-        st.button("상태 새로고침")
-    elif job().get("proc") is not None:
-        code = job()["proc"].returncode
-        (st.success if code == 0 else st.error)(f"종료 (코드 {code}). 로그: {team_run.LOG}")
 
-    if folder_now.exists() and (busy or not (folder_now / "picks.json").exists()):
-        if prog := team_progress(folder_now):
-            st.subheader("📊 진행 상황")
-            k = sum(state == "✅" for _, state, _, _ in prog)
-            st.progress(k / len(prog), text=f"전체 {k}/{len(prog)}명 완료")
-            for label, state, n, total in prog:
-                if total:
-                    st.progress(n / total, text=f"{state} {label} {n}/{total}")
-                else:
-                    st.write(f"{state} {label}")
-            st.caption("✅ 완료 · ⏳ 진행 중 · ⬜ 대기. 진행 중 종목 수는 검색 기록으로 추정한 값입니다.")
-        else:
-            st.caption("📊 후보군 선정 중…")
+    @st.fragment(run_every=20 if busy else None)  # 실행·대기 중에는 20초마다 상태와 진행 상황을 새로 그린다
+    def status():
+        running = team_run.running(job())
+        waiting = job().get("resume_at")
+        if (running or bool(waiting)) != busy:  # 시작·종료·대기·재개가 바뀌면 버튼 상태까지 앱 전체를 다시 그린다
+            st.rerun()
+        if note := job().get("note"):
+            st.info(note)
+        if running:
+            st.info(f"실행 중… {int((time.time() - job()['started']) // 60)}분 경과"
+                    + (f" (자동 이어서 실행 {job()['attempts']}/{team_run.MAX_AUTO}회째)" if job().get("attempts") else ""))
+            st.button("상태 새로고침")
+        elif waiting:
+            st.warning(f"⏸ 사용 한도에 도달했습니다. {waiting.astimezone():%m/%d %H:%M}에 자동으로 이어서 실행합니다 "
+                       f"({job()['attempts'] + 1}/{team_run.MAX_AUTO}회). 앱과 PC를 켜 두세요.")
+            if st.button("자동 이어서 실행 취소"):
+                job()["cancel"] = True
+                job()["resume_at"] = None
+                st.rerun()
+            st.button("상태 새로고침")
+        elif job().get("proc") is not None:
+            code = job()["proc"].returncode
+            (st.success if code == 0 else st.error)(f"종료 (코드 {code}). 로그: {team_run.LOG}")
+
+        if folder_now.exists() and (busy or not (folder_now / "picks.json").exists()):
+            if prog := team_progress(folder_now):
+                st.subheader("📊 진행 상황")
+                k = sum(state == "✅" for _, state, _, _ in prog)
+                st.progress(k / len(prog), text=f"전체 {k}/{len(prog)}명 완료")
+                for label, state, n, total in prog:
+                    if total:
+                        st.progress(n / total, text=f"{state} {label} {n}/{total}")
+                    else:
+                        st.write(f"{state} {label}")
+                st.caption("✅ 완료 · ⏳ 진행 중 · ⬜ 대기. 진행 중 종목 수는 검색 기록으로 추정한 값입니다.")
+            else:
+                st.caption("📊 후보군 선정 중…")
+
+    status()
+
 
 picks, folder = latest_picks()
 saved = load_positions()
@@ -273,15 +283,18 @@ if (n_picks or held) and seed and usdkrw:
         value = (p["amount"] + r["손익($)"]) * usdkrw
         loss = r["수량"] * (r["기준가"] - r["손절가"]) * usdkrw if r["손절가"] else value * risk_pct(p["ticker"], ohlcv(p["ticker"], 300)) / 100
         rows.append({"구분": "보유 중", "티커": p["ticker"], "종목명": p.get("name", ""), "청산 규칙": rule_text(p["ticker"]),
-                     "비중(%)": value / seed * 100, "금액(원)": value, "금액($)": value / usdkrw, "최대 손실(원)": max(loss, 0.0)})
+                     "비중(%)": value / seed * 100, "금액(원)": value, "금액($)": value / usdkrw,
+                     "현재가($)": r["기준가"], "수량(주)": r["수량"], "최대 손실(원)": max(loss, 0.0)})
     held_krw = sum(r["금액(원)"] for r in rows)
     items = [p for p in (picks or {}).get("picks", []) if p["ticker"] not in held_tickers]
     risks = [risk_pct(p["ticker"], ohlcv(p["ticker"], 300) if rule(p["ticker"]) is None else None) for p in items]
+    prices = [float(df["close"].iloc[-1]) if (df := ohlcv(p["ticker"], 300)) is not None else None for p in items]
     weights = allocate([float(p.get("score") or 0) for p in items], risks, budget=max(0.0, 1 - held_krw / seed))
     new = [{"구분": "신규 추천", "티커": p["ticker"], "종목명": p.get("name", ""), "청산 규칙": rule_text(p["ticker"]),
             "종합점수": p.get("score"), "최악 손실(%)": r, "비중(%)": w * 100,
-            "금액(원)": seed * w, "금액($)": seed * w / usdkrw, "최대 손실(원)": seed * w * r / 100}
-           for p, r, w in zip(items, risks, weights)]
+            "금액(원)": seed * w, "금액($)": seed * w / usdkrw,
+            "현재가($)": px, "수량(주)": int(seed * w / usdkrw // px) if px else None, "최대 손실(원)": seed * w * r / 100}
+           for p, r, w, px in zip(items, risks, weights, prices)]
     rows += new
     alloc = {r["티커"]: round(r["금액($)"], 2) for r in new}
     cash = max(0.0, seed - held_krw - seed * sum(weights))
@@ -295,6 +308,8 @@ if (n_picks or held) and seed and usdkrw:
         "비중(%)": st.column_config.NumberColumn(format="%.1f%%"),
         "금액(원)": st.column_config.NumberColumn(format="%.0f원"),
         "금액($)": st.column_config.NumberColumn(format="$%.2f"),
+        "현재가($)": st.column_config.NumberColumn(format="$%.2f"),
+        "수량(주)": st.column_config.NumberColumn(format="%.4g", help="신규는 배분 금액으로 살 수 있는 온주 수 (1주 미만 나머지는 현금)"),
         "최대 손실(원)": st.column_config.NumberColumn(format="%.0f원"),
     })
     a1, a2, a3 = st.columns(3)
@@ -303,7 +318,8 @@ if (n_picks or held) and seed and usdkrw:
     a3.metric("전부 손절 시 최대 손실", f"{sum(r['최대 손실(원)'] for r in rows):,.0f}원")
     st.caption("보유 중인 종목은 현재 평가액 그대로 두고 남은 시드로만 새 추천 종목을 배분합니다. "
                "추천 점수가 높을수록 더 싣고(0.5~1.5배), 한 종목에서 잃을 수 있는 최대 금액이 비슷하도록 "
-               "손절폭이 넓거나 없는 자산은 줄입니다. 갭하락 시 손실은 더 커질 수 있습니다. 매수 설정의 기본 금액으로 들어갑니다.")
+               "손절폭이 넓거나 없는 자산은 줄입니다. 갭하락 시 손실은 더 커질 수 있습니다. 매수 설정의 기본 금액으로 들어갑니다. "
+               "수량은 최근 종가 기준 온주이고, 소수점 거래를 쓰면 금액($)대로 사면 됩니다.")
 with st.expander("📚 배분 방법과 안전자산(국채·금·은·달러) 청산 규칙 분석"):
     st.markdown((Path(__file__).parent / "PORTFOLIO.md").read_text(encoding="utf-8"))
 
