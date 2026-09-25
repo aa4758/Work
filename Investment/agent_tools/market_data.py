@@ -4,15 +4,15 @@
 `.claude/agents/` 의 분석 에이전트들이 Bash로 호출해 '실제 숫자'를 얻는 창구.
 LLM이 숫자를 지어내지 않도록, 계산은 전부 이 파일에서 하고 결과는 JSON으로 출력한다.
 
-사용법 (SetUp 폴더에서):
-  python agent_tools/market_data.py screen   --market ALL --top 40
-  python agent_tools/market_data.py chart    005930 000660 035420   # 여러 종목 한 번에
-  python agent_tools/market_data.py bracket  005930 --stop 5 --take 15 --horizon 60
-  python agent_tools/market_data.py investor 005930 000660 --days 20
-  python agent_tools/market_data.py fundamental 삼성전자
-  python agent_tools/market_data.py fx
-  python agent_tools/market_data.py screen-us --top 30          # 미국 S&P500 규칙 기반 후보군
-  python agent_tools/market_data.py macro                       # 미국 지수·금리·유가·달러·VIX
+사용법 (저장소 루트에서):
+  python Investment/agent_tools/market_data.py screen   --market ALL --top 40
+  python Investment/agent_tools/market_data.py chart    005930 000660 035420   # 여러 종목 한 번에
+  python Investment/agent_tools/market_data.py bracket  005930 --stop 5 --take 15 --horizon 60
+  python Investment/agent_tools/market_data.py investor 005930 000660 --days 20
+  python Investment/agent_tools/market_data.py fundamental 삼성전자
+  python Investment/agent_tools/market_data.py fx
+  python Investment/agent_tools/market_data.py screen-us --top 30          # 미국 S&P500 규칙 기반 후보군
+  python Investment/agent_tools/market_data.py macro                       # 미국 지수·금리·유가·달러·VIX
 
 데이터 출처와 fallback:
   - 시세(OHLCV): pykrx → 실패 시 네이버 차트 API (로그인 불필요)
@@ -40,10 +40,8 @@ from typing import Optional
 import pandas as pd
 import requests
 
-# SetUp/ 의 기존 모듈(dart_client, config)을 import 하기 위해
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-# 앱 본체가 suspended/SetUp/ 으로 옮겨진 경우에도 찾도록
-sys.path.insert(1, str(Path(__file__).resolve().parents[2] / "suspended" / "SetUp"))
+# 보류된 앱(suspended/SetUp/)의 기존 모듈(dart_client, config)을 import 하기 위해
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "suspended" / "SetUp"))
 
 try:
     # pykrx는 import 시점에 "KRX 로그인 실패" 같은 메시지를 print 하므로 JSON 출력을 지키려고 삼킨다

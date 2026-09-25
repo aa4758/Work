@@ -15,14 +15,14 @@ description: 투자 에이전트 팀(분석가·찬반 토론·결정권자, 미
 - 에이전트 간 핸드오프는 **`handoff.py` 출력 또는 에이전트가 반환한 표**만 전달합니다. 리포트 전문을 Read 하지 마세요.
 - 같은 단계의 에이전트는 한 메시지에서 병렬로 호출합니다.
 
-`H` = `python SetUp/agent_tools/handoff.py <폴더>` (저장소 루트에서 실행)
+`H` = `python Investment/agent_tools/handoff.py <폴더>` (저장소 루트에서 실행)
 
 ## 0단계 — 준비
 - 폴더: 인자에 `폴더 <경로>`가 있으면 그 경로(앱은 마지막 미국 장 마감일로 정해 넘김), 없으면 `reports/YYYY-MM-DD/` (미국 모드 `reports/YYYY-MM-DD-US/`).
-- 미국 모드: `python SetUp/agent_tools/market_data.py screen-us --top N > <폴더>/00_screen.json` (규칙·근거: Investment/SCREENING.md).
+- 미국 모드: `python Investment/agent_tools/market_data.py screen-us --top N > <폴더>/00_screen.json` (규칙·근거: Investment/SCREENING.md).
   후보를 임의로 빼거나 더하지 않습니다. 비주식 자산 `TLT IEF GLD SLV` 를 항상 추가합니다.
   스크리너가 error 면 WebSearch로 S&P500 시총·거래대금 상위 N종목을 쓰고, 규칙 기반이 아님을 보고에 명시합니다.
-- 한국 모드: `python SetUp/agent_tools/market_data.py screen --market ALL --top 60 --min-value 100` 에서 업종이 쏠리지 않게 N개.
+- 한국 모드: `python Investment/agent_tools/market_data.py screen --market ALL --top 60 --min-value 100` 에서 업종이 쏠리지 않게 N개.
 - 후보 목록(티커, 종목명)과 선정 방식을 `<폴더>/00_universe.md` 에 저장.
 
 ## 1단계 — 분석

@@ -34,7 +34,7 @@
 ```
 
 **컨텍스트 관리**: 진행자(메인 세션)만 전체 흐름을 알고, 하위 에이전트는 독립 컨텍스트에서 자기 작업만 하고 종료합니다.
-에이전트 사이에는 리포트 전문이나 대화 내역 대신 `SetUp/agent_tools/handoff.py` 가 뽑은 **요약·점수표**만 프롬프트로 넘깁니다.
+에이전트 사이에는 리포트 전문이나 대화 내역 대신 `Investment/agent_tools/handoff.py` 가 뽑은 **요약·점수표**만 프롬프트로 넘깁니다.
 모든 리포트는 `## 요약`(3줄) + `## 점수표`(`| 티커 | 점수 | 근거 |`) 형식이라 코드로 합칠 수 있고,
 최소 기준상 결과가 바뀔 수 없는 종목(-2 회피, 토론 최대 점수로도 기준 미달)은 다음 단계로 넘기지 않습니다.
 에이전트는 리포트를 파일로 저장하고 요약만 반환합니다.
@@ -53,17 +53,17 @@
 
 개별 에이전트만 호출할 수도 있습니다: "chart-analyst로 005930, 000660 분석해줘"
 
-## 데이터 도구 (`SetUp/agent_tools/market_data.py`)
+## 데이터 도구 (`Investment/agent_tools/market_data.py`)
 
 에이전트가 숫자를 지어내지 않도록 계산은 이 스크립트가 하고 JSON으로 돌려줍니다.
 
 ```bash
-python SetUp/agent_tools/market_data.py screen --market ALL --top 60 --min-value 100
-python SetUp/agent_tools/market_data.py chart 005930 000660           # 기술지표 + 전략 백테스트
-python SetUp/agent_tools/market_data.py bracket 005930 --stop 5 --take 15 --horizon 60
-python SetUp/agent_tools/market_data.py investor 005930 --days 20     # 개인/외국인/기관 순매수
-python SetUp/agent_tools/market_data.py fundamental 삼성전자           # DART 재무지표
-python SetUp/agent_tools/market_data.py fx                            # 원/달러 등 환율
+python Investment/agent_tools/market_data.py screen --market ALL --top 60 --min-value 100
+python Investment/agent_tools/market_data.py chart 005930 000660           # 기술지표 + 전략 백테스트
+python Investment/agent_tools/market_data.py bracket 005930 --stop 5 --take 15 --horizon 60
+python Investment/agent_tools/market_data.py investor 005930 --days 20     # 개인/외국인/기관 순매수
+python Investment/agent_tools/market_data.py fundamental 삼성전자           # DART 재무지표
+python Investment/agent_tools/market_data.py fx                            # 원/달러 등 환율
 ```
 
 `bracket`(전략 백테스트): 과거 1년 동안 매일 종가에 샀다고 가정하고, 이후 고가/저가로
@@ -74,7 +74,7 @@ python SetUp/agent_tools/market_data.py fx                            # 원/달�
 
 | 항목 | 용도 | 없으면 |
 |---|---|---|
-| `pip install -r SetUp/requirements.txt` | pykrx, pandas 등 | 도구 실행 불가 |
+| `pip install -r suspended/SetUp/requirements.txt` | pykrx, pandas 등 | 도구 실행 불가 |
 | `DART_API_KEY` | 재무제표 | 기업가치 분석가가 웹검색으로 대체 |
 | `KRX_ID`, `KRX_PW` 환경변수 | 최신 pykrx의 시총·수급 조회 | 시세는 네이버로 대체, 스크리닝·수급은 웹검색으로 대체 |
 
@@ -84,4 +84,4 @@ python SetUp/agent_tools/market_data.py fx                            # 원/달�
   앱은 조율 세션도 `--model sonnet` 으로 실행합니다.
 
 > 이 팀의 결과는 분석 보조 자료이며 투자 권유가 아닙니다. 최종 판단과 책임은 투자자 본인에게 있습니다.
-> (앱(`SetUp/app.py`)의 "매수·매도 표현 금지" 원칙과는 별개인, 개인 의사결정용 도구입니다.)
+> (보류된 앱(`suspended/SetUp/app.py`)의 "매수·매도 표현 금지" 원칙과는 별개인, 개인 의사결정용 도구입니다.)

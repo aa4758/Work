@@ -14,7 +14,7 @@ model: sonnet
 - 최종 응답은 `## 요약` 3줄과 저장 경로만. 리포트 전문을 반환하지 않는다.
 
 ## 분석
-- 한국: `python SetUp/agent_tools/market_data.py investor <코드들> --days 20` + 네이버 종목토론방. 미국: Reddit·StockTwits·풋콜비율·공매도 잔고·기관 13F를 WebSearch.
+- 한국: `python Investment/agent_tools/market_data.py investor <코드들> --days 20` + 네이버 종목토론방. 미국: Reddit·StockTwits·풋콜비율·공매도 잔고·기관 13F를 WebSearch.
 - 관심이 막 붙는 종목은 가점, 개인 쏠림·"풀매수" 일색의 과열은 감점(차익매물로 손절 위험). 기관·외국인 동반 매수는 가점, 개인만 매수하고 기관 이탈은 감점.
 - 커뮤니티 표본은 편향돼 있으니 톤은 참고로만.
 

@@ -14,7 +14,7 @@ model: opus
 - 최종 응답은 `## 요약` 3줄과 저장 경로만.
 
 ## 분석
-- `python SetUp/agent_tools/market_data.py macro` (지수·VIX·금리·장단기차·달러·유가·금·하이일드). 폴더의 00_screen.json `시장국면`도 참고.
+- `python Investment/agent_tools/market_data.py macro` (지수·VIX·금리·장단기차·달러·유가·금·하이일드). 폴더의 00_screen.json `시장국면`도 참고.
 - WebSearch (최근 30일): 연준(FOMC·점도표·FedWatch), CPI/PCE·고용·ISM, 유가·OPEC+, 실적 시즌 가이던스, 관세·재정 이벤트.
 - 근거 있는 관계만: 장기금리 급등→성장주 부담, 10Y-3M 역전→침체 선행(시점 불확실), VIX 급등→손절 급증, 하이일드 약세→위험자산 약세 선행,
   지수 200일선 아래 반등→모멘텀 붕괴 위험(Daniel·Moskowitz 2016). 반영된 뉴스와 미반영 변수를 구분하고, 모르면 "불확실".

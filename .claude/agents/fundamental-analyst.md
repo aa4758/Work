@@ -15,7 +15,7 @@ model: sonnet
 
 ## 분석
 - 목표: 하방이 단단하고(손절↓) 재평가 여지가 있는(익절↑) 회사. 보유기간은 수 주~3개월.
-- 한국: `python SetUp/agent_tools/market_data.py fundamental <회사명>` (DART). 미국: WebSearch (SEC 10-K/10-Q, IR, Yahoo Finance).
+- 한국: `python Investment/agent_tools/market_data.py fundamental <회사명>` (DART). 미국: WebSearch (SEC 10-K/10-Q, IR, Yahoo Finance).
 - 품질은 매출총이익/총자산(Novy-Marx 2013)·수익성·안정성(QMJ), 밸류는 PER/PBR (업종 비교는 확인될 때만), 최근 실적 서프라이즈.
 - **다음 실적발표일**을 근거에 반드시 적는다 (보유 중 발표 = 갭 리스크). 비주식 자산(TLT·IEF·GLD·SLV)은 받지 않는다.
 

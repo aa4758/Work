@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent  # 에이전트·스킬이 있는 
 REPORTS = ROOT / "reports"
 POSITIONS = Path(__file__).resolve().parent / "data" / "positions.json"  # 개인 데이터: .gitignore 의 **/data/
 
-sys.path.insert(0, str(ROOT / "SetUp" / "agent_tools"))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "agent_tools"))
 import team_run  # noqa: E402  투자팀 실행·사용 한도 후 자동 이어서 실행
 from team_run import run_folder  # noqa: E402  리포트 폴더 = 마지막 미국 장 마감일
 import handoff  # noqa: E402  에이전트 간 핸드오프 요약 (분석 대상 종목 계산에 같은 규칙을 쓴다)

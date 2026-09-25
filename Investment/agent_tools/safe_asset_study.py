@@ -1,6 +1,6 @@
 """
 안전자산에 '-5% 손절 / +15% 익절'이 맞는지 검증 (결과 해석: Investment/PORTFOLIO.md)
-실행: python SetUp/agent_tools/safe_asset_study.py   (약 20초)
+실행: python Investment/agent_tools/safe_asset_study.py   (약 20초)
 
 - 최근 10년 일봉, 배당·이자를 포함한 총수익 기준 (Yahoo adjclose 비율로 OHLC 보정)
 - 매일 진입했다고 보고 120거래일 안에 손절/익절 중 무엇이 먼저 오는지 (market_data.bracket_backtest)

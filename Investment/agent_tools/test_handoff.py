@@ -1,4 +1,4 @@
-"""handoff.py 자체 검사: python SetUp/agent_tools/test_handoff.py"""
+"""handoff.py 자체 검사: python Investment/agent_tools/test_handoff.py"""
 import json
 import tempfile
 from pathlib import Path

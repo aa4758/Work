@@ -3,7 +3,7 @@
 전략은 **매수가 대비 -5% 손절 / +15% 익절**입니다. 손익비가 1:3이라 익절이 손절보다 먼저 나올 확률이 **25%를 넘어야** 기대수익이 플러스입니다.
 그래서 후보군 규칙은 "좋은 회사"보다 **"흔들려서 손절에 걸리지 않고, 추세가 이어져 +15%에 닿을 종목"**을 찾도록 설계했습니다.
 
-실행: `python SetUp/agent_tools/market_data.py screen-us --top 30` (저장소 루트, 약 30초)
+실행: `python Investment/agent_tools/market_data.py screen-us --top 30` (저장소 루트, 약 30초)
 
 ## 1. 대상 범위
 **S&P500 구성종목** 약 503개. 업종 분류는 GICS 섹터(Wikipedia 기준)를 씁니다.

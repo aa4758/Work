@@ -1,4 +1,4 @@
-"""screen-us 규칙 자체 검사: python SetUp/agent_tools/test_screen_us.py"""
+"""screen-us 규칙 자체 검사: python Investment/agent_tools/test_screen_us.py"""
 import numpy as np
 import pandas as pd
 

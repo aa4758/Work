@@ -2,9 +2,9 @@
 /pick-10 에이전트 간 핸드오프 요약기. 리포트 전문 대신 `## 요약`·`## 점수표`만 뽑아 다음 에이전트 프롬프트로 넘긴다.
 점수 계산을 코드로 해서 결정권자·진행자가 수십 종목의 가중합을 직접 계산하지 않게 한다.
 
-  python SetUp/agent_tools/handoff.py <폴더> survivors  # 1a 뒤: 차트 -2(회피)가 아닌 주식 → 기업가치·뉴스·심리 대상
-  python SetUp/agent_tools/handoff.py <폴더> debate     # 1단계 뒤: 토론 대상 요약 → 10_handoff.md
-  python SetUp/agent_tools/handoff.py <폴더> final      # 토론 뒤: 최종 점수표 → 11_scores.md (결정권자 입력)
+  python Investment/agent_tools/handoff.py <폴더> survivors  # 1a 뒤: 차트 -2(회피)가 아닌 주식 → 기업가치·뉴스·심리 대상
+  python Investment/agent_tools/handoff.py <폴더> debate     # 1단계 뒤: 토론 대상 요약 → 10_handoff.md
+  python Investment/agent_tools/handoff.py <폴더> final      # 토론 뒤: 최종 점수표 → 11_scores.md (결정권자 입력)
 
 리포트 형식 (모든 에이전트 공통): `## 요약` (3줄 이내), `## 점수표` 의 `| 티커 | 점수 | 근거 |` 행.
 토론 반박 파일(05b/06b)은 `| 티커 | 최종 강도 | 반박 |`.

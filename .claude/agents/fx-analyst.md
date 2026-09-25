@@ -14,7 +14,7 @@ model: sonnet
 - 최종 응답은 `## 요약` 3줄과 저장 경로만. 리포트 전문을 반환하지 않는다.
 
 ## 분석
-- `python SetUp/agent_tools/market_data.py fx --days 90` + WebSearch(연준·한은 일정, DXY, 당국 발언). 1~3개월 기본/상방/하방 시나리오.
+- `python Investment/agent_tools/market_data.py fx --days 90` + WebSearch(연준·한은 일정, DXY, 당국 발언). 1~3개월 기본/상방/하방 시나리오.
 - 한국 모드: 환율이 외국인 수급과 수출주·수입주 실적에 주는 영향으로 종목 점수.
 - 미국 모드: 한국 개인투자자가 원화를 달러로 바꿔 산다. 강달러 구간 환차손 위험을 평가하고, 종목 점수는 매출의 해외 비중·달러 민감도로.
 
