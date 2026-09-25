@@ -11,12 +11,15 @@ LLM이 숫자를 지어내지 않도록, 계산은 전부 이 파일에서 하�
   python agent_tools/market_data.py investor 005930 000660 --days 20
   python agent_tools/market_data.py fundamental 삼성전자
   python agent_tools/market_data.py fx
+  python agent_tools/market_data.py screen-us --top 30          # 미국 S&P500 규칙 기반 후보군
+  python agent_tools/market_data.py macro                       # 미국 지수·금리·유가·달러·VIX
 
 데이터 출처와 fallback:
   - 시세(OHLCV): pykrx → 실패 시 네이버 차트 API (로그인 불필요)
   - 시가총액/거래대금 스크리닝, 투자자별 매매: pykrx (최신 pykrx는 KRX_ID/KRX_PW 환경변수 필요)
   - 재무: dart_client.py (DART_API_KEY 필요)
   - 환율: frankfurter.app (ECB 기준, 키 불필요)
+  - 미국: 시세 Yahoo chart API, S&P500 구성종목·GICS 업종 Wikipedia
 어느 소스든 실패하면 예외 대신 {"error": ...} 를 출력한다 — 에이전트가 "데이터 없음"을
 명시하고 넘어갈 수 있게.
 """
@@ -39,6 +42,8 @@ import requests
 
 # SetUp/ 의 기존 모듈(dart_client, config)을 import 하기 위해
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# 앱 본체가 suspended/SetUp/ 으로 옮겨진 경우에도 찾도록
+sys.path.insert(1, str(Path(__file__).resolve().parents[2] / "suspended" / "SetUp"))
 
 try:
     # pykrx는 import 시점에 "KRX 로그인 실패" 같은 메시지를 print 하므로 JSON 출력을 지키려고 삼킨다
@@ -108,8 +113,30 @@ def _ohlcv_naver(code: str, days: int) -> Optional[pd.DataFrame]:
     return pd.DataFrame(records).set_index("date").sort_index()
 
 
+def _ohlcv_yahoo(code: str, days: int) -> Optional[pd.DataFrame]:
+    """미국 티커(AAPL, BRK-B)나 환율(KRW=X). 거래일→달력일 여유로 1.5배 요청."""
+    start = datetime.now() - timedelta(days=int(days * 1.5) + 10)
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{code}"
+    params = {"period1": int(start.timestamp()), "period2": int(datetime.now().timestamp()), "interval": "1d"}
+    try:
+        resp = requests.get(url, params=params, headers=_UA, timeout=10)
+        resp.raise_for_status()
+        res = resp.json()["chart"]["result"][0]
+        q = res["indicators"]["quote"][0]
+    except (requests.RequestException, KeyError, IndexError, TypeError, ValueError):
+        return None
+    df = pd.DataFrame({k: q[k] for k in ("open", "high", "low", "close", "volume")},
+                      index=pd.to_datetime(res["timestamp"], unit="s").normalize())
+    df = df.dropna(subset=["close"]).astype(float)
+    return df[~df.index.duplicated(keep="last")] if len(df) else None
+
+
 def load_ohlcv(code: str, days: int = 400) -> tuple[Optional[pd.DataFrame], str]:
-    """(DataFrame, 출처). 거래정지 등으로 거래량 0인 날은 제외."""
+    """(DataFrame, 출처). 거래정지 등으로 거래량 0인 날은 제외. 6자리 숫자가 아니면 미국 티커로 본다."""
+    if not re.fullmatch(r"\d{6}", code):
+        df = _ohlcv_yahoo(code, days)
+        # 환율(KRW=X)은 거래량이 0이라 거래량 필터를 건너뛴다
+        return (df.tail(days), "yahoo") if df is not None and len(df) >= 30 else (None, "none")
     for name, loader in (("pykrx", _ohlcv_pykrx), ("naver", _ohlcv_naver)):
         df = loader(code, days)
         if df is not None and len(df) >= 30:
@@ -162,9 +189,9 @@ def technicals(df: pd.DataFrame) -> dict:
 
     return {
         "기준일": df.index[-1].strftime("%Y-%m-%d"),
-        "종가": _r(last, 0),
+        "종가": _r(last),
         "수익률(%)": {"1주": ret(5), "1개월": ret(20), "3개월": ret(60), "6개월": ret(120)},
-        "이동평균": {f"MA{n}": _r(x, 0) for n, x in ma.items()},
+        "이동평균": {f"MA{n}": _r(x) for n, x in ma.items()},
         "종가/MA20(%)": _r((last / ma[20] - 1) * 100) if pd.notna(ma[20]) else None,
         "종가/MA60(%)": _r((last / ma[60] - 1) * 100) if pd.notna(ma[60]) else None,
         "이평배열": alignment,
@@ -178,7 +205,7 @@ def technicals(df: pd.DataFrame) -> dict:
         "ATR14(%)": _r(atr14 / last * 100),
         "일간변동성_20일(%)": _r(daily_ret.tail(20).std() * 100),
         "52주": {
-            "고가": _r(hi52, 0), "저가": _r(lo52, 0),
+            "고가": _r(hi52), "저가": _r(lo52),
             "고가대비(%)": _r((last / hi52 - 1) * 100),
             "저가대비(%)": _r((last / lo52 - 1) * 100),
         },
@@ -253,7 +280,7 @@ def bracket_backtest(df: pd.DataFrame, stop_pct: float = 5, take_pct: float = 15
 def _chart_one(code: str, args) -> dict:
     df, src = load_ohlcv(code, days=400)
     if df is None:
-        return {"code": code, "error": "시세 조회 실패 (pykrx/naver 모두 실패)"}
+        return {"code": code, "error": "시세 조회 실패 (pykrx/naver/yahoo 모두 실패)"}
     out = {"code": code, "출처": src, **technicals(df)}
     out["전략백테스트"] = bracket_backtest(df, args.stop, args.take, args.horizon)
     return out
@@ -425,7 +452,153 @@ def cmd_fx(args) -> dict:
     return out
 
 
+# ----------------------------------------------------------------------
+# 미국 후보군 스크리닝 — 규칙과 근거 논문은 Investment/SCREENING.md
+# ----------------------------------------------------------------------
+US_RULES = {
+    "min_history": 273,        # 12-1 모멘텀 계산에 252+21 거래일 필요
+    "min_price": 10.0,         # 저가주 제외 (호가 단위 대비 변동 큼)
+    "min_dollar_vol": 50e6,    # 20일 중앙값 거래대금 $5천만 — 손절 주문 슬리피지 (Amihud 2002)
+    "atr_band": (1.5, 3.0),    # ATR14% — 손절폭 5%가 ATR의 1.7~3.3배 (Wilder 1978, ATR 손절 관행)
+    "max_decile": 0.9,         # 최근 21일 최대 일간수익률 상위 10% 제외 (Bali·Cakici·Whitelaw 2011)
+    "sector_share": 0.2,       # 후보군 중 한 GICS 섹터 최대 20%
+}
+
+
+def us_factors(df: pd.DataFrame) -> Optional[dict]:
+    """한 종목의 필터·팩터 원자료. 이력이 짧으면 None."""
+    if len(df) < US_RULES["min_history"]:
+        return None
+    c, h, l = df["close"], df["high"], df["low"]
+    last = float(c.iloc[-1])
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    form = c.iloc[-253:-20].pct_change().dropna()   # 형성기간: t-252 ~ t-21 (최근 1개월 제외)
+    mom = float(c.iloc[-21] / c.iloc[-253] - 1)
+    return {
+        "price": last,
+        "dollar_vol": float((c * df["volume"]).tail(20).median()),
+        "atr_pct": float(tr.tail(14).mean() / last * 100),
+        "above_ma200": last > c.tail(200).mean() and c.tail(50).mean() > c.tail(200).mean(),
+        "max_ret": float(c.pct_change().tail(21).max()),
+        "mom_12_1": mom,                                              # Jegadeesh·Titman 1993
+        "near_52w_high": last / float(h.tail(252).max()),             # George·Hwang 2004
+        # 정보 불연속성 ID = sign(PRET)·(%하락일 − %상승일). 낮을수록 '조용한' 모멘텀 (Da·Gurun·Warachka 2014)
+        "info_discrete": (1 if mom > 0 else -1) * ((form < 0).mean() - (form > 0).mean()),
+    }
+
+
+def rank_us(rows: list[dict], top: int) -> tuple[list[dict], dict]:
+    """rows: {ticker, name, sector, **us_factors}. 필터 → 팩터 백분위 동일가중 → 섹터 상한. (후보, 단계별 생존 수)"""
+    R = US_RULES
+    df = pd.DataFrame(rows)
+    funnel = {"대상": len(df)}
+    steps = [
+        ("가격≥$10", df["price"] >= R["min_price"]),
+        ("거래대금≥$50M", df["dollar_vol"] >= R["min_dollar_vol"]),
+        ("ATR 1.5~3.0%", df["atr_pct"].between(*R["atr_band"])),
+        ("추세(>MA200, MA50>MA200)", df["above_ma200"].astype(bool)),
+    ]
+    for name, mask in steps:
+        df = df[mask.loc[df.index]]
+        funnel[name] = len(df)
+    # MAX 효과는 유니버스 내 상대 기준 — 추세 통과 종목 중 상위 10%
+    df = df[df["max_ret"] <= df["max_ret"].quantile(R["max_decile"])]
+    funnel["MAX 상위10% 제외"] = len(df)
+    if df.empty:
+        return [], funnel
+
+    df = df.assign(score=(df["mom_12_1"].rank(pct=True) + df["near_52w_high"].rank(pct=True)
+                          + df["info_discrete"].rank(pct=True, ascending=False)) / 3)
+    cap = max(1, math.ceil(top * R["sector_share"]))
+    picked = (df.sort_values("score", ascending=False)
+                .groupby("sector", sort=False).head(cap)
+                .sort_values("score", ascending=False).head(top))
+    funnel["최종 후보"] = len(picked)
+    return picked.to_dict("records"), funnel
+
+
+def _sp500() -> pd.DataFrame:
+    resp = requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", headers=_UA, timeout=15)
+    resp.raise_for_status()
+    t = pd.read_html(io.StringIO(resp.text))[0]
+    return pd.DataFrame({"ticker": t["Symbol"].str.replace(".", "-", regex=False),
+                         "name": t["Security"], "sector": t["GICS Sector"]})
+
+
+def cmd_screen_us(args) -> dict:
+    from concurrent.futures import ThreadPoolExecutor
+    try:
+        universe = _sp500()
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"S&P500 구성종목 조회 실패: {e}. WebSearch로 후보군을 구성하세요."}
+
+    with ThreadPoolExecutor(8) as ex:
+        prices = list(ex.map(lambda t: _ohlcv_yahoo(t, 300), universe["ticker"]))
+    rows = []
+    for u, df in zip(universe.to_dict("records"), prices):
+        f = us_factors(df) if df is not None else None
+        if f:
+            rows.append({**u, **f})
+
+    # 시장 국면: 지수가 200일선 아래면 모멘텀 붕괴 위험 (Daniel·Moskowitz 2016, Faber 2007)
+    spx = _ohlcv_yahoo("^GSPC", 300)
+    bull = bool(spx is not None and spx["close"].iloc[-1] > spx["close"].tail(200).mean())
+
+    picked, funnel = rank_us(rows, args.top)
+    funnel = {"S&P500": len(universe), "시세·이력 확보": len(rows), **{k: v for k, v in funnel.items() if k != "대상"}}
+    return {
+        "기준일": prices[0].index[-1].strftime("%Y-%m-%d") if prices and prices[0] is not None else None,
+        "시장국면": "강세(S&P500 > 200일선)" if bull else "약세(S&P500 < 200일선) — 모멘텀 붕괴 위험, 현금 슬롯 검토",
+        "규칙": "Investment/SCREENING.md",
+        "단계별_생존": funnel,
+        "후보": [{
+            "ticker": p["ticker"], "name": p["name"], "sector": p["sector"], "종합점수": _r(p["score"], 3),
+            "종가": _r(p["price"]), "12-1모멘텀(%)": _r(p["mom_12_1"] * 100, 1),
+            "52주고가근접(%)": _r(p["near_52w_high"] * 100, 1), "정보불연속성": _r(p["info_discrete"], 3),
+            "ATR14(%)": _r(p["atr_pct"]), "거래대금_중앙값($M)": _r(p["dollar_vol"] / 1e6, 0),
+        } for p in picked],
+    }
+
+
+MACRO = {
+    "^GSPC": "S&P500", "^NDX": "나스닥100", "^RUT": "러셀2000(소형주)", "^VIX": "VIX(변동성)",
+    "^IRX": "미 3개월 국채금리(%)", "^FVX": "미 5년 국채금리(%)", "^TNX": "미 10년 국채금리(%)",
+    "DX-Y.NYB": "달러인덱스", "CL=F": "WTI 유가($)", "BZ=F": "브렌트 유가($)", "GC=F": "금($)",
+    "HYG": "하이일드 채권 ETF(신용위험)",
+}
+
+
+def cmd_macro(args) -> dict:
+    """미국 시장 매크로 지표: 수준·변화율·200일선 대비·52주 위치, 장단기 금리차."""
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(8) as ex:
+        data = dict(zip(MACRO, ex.map(lambda s: _ohlcv_yahoo(s, 300), MACRO)))
+    out, ref = {}, None
+    for sym, label in MACRO.items():
+        df = data[sym]
+        if df is None or len(df) < 200:
+            out[label] = {"error": "조회 실패"}
+            continue
+        c = df["close"]
+        last, ref = float(c.iloc[-1]), ref or df.index[-1]
+        out[label] = {
+            "현재": _r(last), "1주(%)": _r((last / c.iloc[-6] - 1) * 100),
+            "1개월(%)": _r((last / c.iloc[-22] - 1) * 100), "3개월(%)": _r((last / c.iloc[-64] - 1) * 100),
+            "200일선 대비(%)": _r((last / c.tail(200).mean() - 1) * 100),
+            "52주 범위 위치(%)": _r((last - c.tail(252).min()) / (c.tail(252).max() - c.tail(252).min()) * 100, 0),
+        }
+    t10, t3m = data["^TNX"], data["^IRX"]
+    spread = None if t10 is None or t3m is None else _r(t10["close"].iloc[-1] - t3m["close"].iloc[-1])
+    return {
+        "기준일": ref.strftime("%Y-%m-%d") if ref is not None else None, "출처": "Yahoo Finance",
+        # 10년-3개월 역전(음수)은 역사적으로 경기침체 선행 신호 (Estrella·Mishkin 1998)
+        "장단기금리차_10Y-3M(%p)": spread,
+        "지표": out,
+    }
+
+
 def main(argv=None) -> int:
+    sys.stdout.reconfigure(encoding="utf-8")  # 윈도우에서 `> 파일` 리다이렉트 시 cp949 로 저장되지 않게
     p = argparse.ArgumentParser(description="투자 에이전트 팀용 데이터 도구")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -458,6 +631,13 @@ def main(argv=None) -> int:
     s = sub.add_parser("fundamental", help="DART 재무지표")
     s.add_argument("name")
     s.set_defaults(fn=cmd_fundamental)
+
+    s = sub.add_parser("screen-us", help="미국 S&P500 규칙 기반 후보군 (Investment/SCREENING.md)")
+    s.add_argument("--top", type=int, default=30)
+    s.set_defaults(fn=cmd_screen_us)
+
+    s = sub.add_parser("macro", help="미국 매크로 지표 (지수·금리·유가·달러·VIX)")
+    s.set_defaults(fn=cmd_macro)
 
     s = sub.add_parser("fx", help="환율")
     s.add_argument("--days", type=int, default=90)

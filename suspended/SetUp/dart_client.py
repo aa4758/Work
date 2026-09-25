@@ -63,6 +63,7 @@ def load_api_key() -> str:
         here / "DART_API_KEY.env",
         here.parent / "DART_API_KEY.env",
         here.parent / "Security" / "DART_API_KEY.env",
+        here.parent.parent / "Security" / "DART_API_KEY.env",  # suspended/ 로 옮겨진 경우
         Path.cwd() / "DART_API_KEY.env",
         Path.cwd() / "Security" / "DART_API_KEY.env",
     ]
