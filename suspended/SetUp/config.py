@@ -38,6 +38,7 @@ _SEARCH_DIRS = [
     _HERE,
     _HERE.parent,
     _HERE.parent / "Security",
+    _HERE.parent.parent / "Security",  # suspended/ 로 옮겨진 경우 work/Security
     Path.cwd(),
     Path.cwd() / "Security",
 ]
