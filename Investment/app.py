@@ -141,7 +141,7 @@ with st.sidebar:
     running = team_run.running(job())
     waiting = job().get("resume_at")  # 사용 한도가 다시 차기를 기다리는 중
     busy = running or bool(waiting)
-    candidates = st.number_input("분석할 후보 종목 수", min_value=15, max_value=60, value=30, step=5,
+    candidates = st.number_input("분석할 후보 종목 수", min_value=15, max_value=100, value=30, step=5,
                                  disabled=busy, help="많을수록 넓게 보지만 시간과 사용량이 비례해 늘어납니다.")
     folder_now = job()["folder"] if busy else run_folder()  # 실행 중에는 장 마감이 지나도 그 실행의 폴더
     if not shutil.which("claude"):
